@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fleet pipelines.yaml",
+  "type": "object",
+  "required": ["pipelines"],
+  "properties": {
+    "pipelines": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["phases"],
+        "properties": {
+          "description": { "type": "string" },
+          "phases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "enum": ["diff"] },
+                "mode": { "enum": ["parallel", "sequential"] },
+                "agents": { "type": "array", "items": { "type": "string" } },
+                "inputs": { "type": "array", "items": { "type": "string" } },
+                "readOnly": { "type": "boolean" },
+                "compaction": { "enum": ["basic", "agentic", "off"] },
+                "maxInputBytes": { "type": "number", "minimum": 1 },
+                "maxOutputWords": { "type": "number", "minimum": 1 },
+                "outputContract": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

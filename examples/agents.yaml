@@ -1,0 +1,43 @@
+agents:
+  - name: recon
+    rolePreset: repo-mapper
+    runtime: cline
+    role: read-only repo mapper
+    model: local-qwen-vision
+    profile: recon
+    phase: recon
+    prompt: prompts/recon.md
+    thinking: medium
+    autoApprove: true
+    permissions:
+      mode: read-only
+      tools: [read, search]
+      mcp: profile
+  - name: planner
+    rolePreset: planner
+    runtime: openai-compatible-direct
+    role: architecture and migration planner
+    model: nvidia-glm-text
+    profile: planner
+    phase: plan
+    prompt: prompts/planner.md
+    thinking: high
+    autoApprove: true
+    permissions:
+      mode: read-only
+      tools: [read, search]
+      mcp: none
+  - name: coder
+    rolePreset: coder
+    runtime: cline
+    role: minimal scoped implementation agent
+    model: nvidia-glm-text
+    profile: coder
+    phase: implement
+    prompt: prompts/coder.md
+    thinking: high
+    autoApprove: false
+    permissions:
+      mode: write
+      tools: [read, search, edit, shell]
+      mcp: profile

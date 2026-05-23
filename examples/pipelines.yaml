@@ -1,0 +1,50 @@
+pipelines:
+  default:
+    description: Safe read-only plan and review.
+    phases:
+      - name: recon
+        mode: parallel
+        agents: [recon]
+        inputs: []
+        readOnly: true
+        compaction: basic
+        maxInputBytes: 120000
+        maxOutputWords: 2000
+      - name: plan
+        mode: sequential
+        agents: [planner]
+        inputs: [recon]
+        readOnly: true
+        compaction: basic
+        maxInputBytes: 120000
+        maxOutputWords: 2500
+  implement:
+    description: Explicit implementation pipeline.
+    phases:
+      - name: recon
+        mode: parallel
+        agents: [recon]
+        inputs: []
+        readOnly: true
+        compaction: basic
+        maxInputBytes: 120000
+        maxOutputWords: 2000
+      - name: plan
+        mode: sequential
+        agents: [planner]
+        inputs: [recon]
+        readOnly: true
+        compaction: basic
+        maxInputBytes: 120000
+        maxOutputWords: 2500
+      - name: implement
+        mode: sequential
+        agents: [coder]
+        inputs: [plan]
+        readOnly: false
+        compaction: basic
+        maxInputBytes: 120000
+        maxOutputWords: 1500
+      - name: capture_diff
+        type: diff
+        inputs: [implement]

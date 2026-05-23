@@ -1,0 +1,22 @@
+models:
+  local-qwen-vision:
+    provider: openai-compatible
+    baseUrl: http://localhost:1234/v1
+    modelId: qwen/qwen3.6-27b
+    apiKeyEnv: null
+    modalities:
+      - text
+      - image
+    contextWindow: 131072
+    outputBudget: 4000
+    reasoning: medium
+  nvidia-glm-text:
+    provider: openai-compatible
+    baseUrl: https://integrate.api.nvidia.com/v1
+    modelId: z-ai/glm-5.1
+    apiKeyEnv: NVIDIA_API_KEY
+    modalities:
+      - text
+    contextWindow: 65536
+    outputBudget: 6000
+    reasoning: high

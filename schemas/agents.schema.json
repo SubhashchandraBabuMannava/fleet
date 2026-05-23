@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fleet agents.yaml",
+  "type": "object",
+  "required": ["agents"],
+  "properties": {
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "role", "model", "phase"],
+        "properties": {
+          "name": { "type": "string" },
+          "rolePreset": { "type": "string" },
+          "runtime": {
+            "enum": ["cline", "claude-code", "codex", "openai-compatible-direct", "custom-command", "aider"]
+          },
+          "runtimeCommand": { "type": "string" },
+          "runtimeConfig": {
+            "type": "object",
+            "properties": {
+              "command": { "type": "string" },
+              "env": {
+                "type": "object",
+                "additionalProperties": { "type": ["string", "number", "boolean"] }
+              }
+            },
+            "additionalProperties": true
+          },
+          "role": { "type": "string" },
+          "model": { "type": "string" },
+          "profile": { "type": "string" },
+          "phase": { "type": "string" },
+          "prompt": { "type": "string" },
+          "thinking": { "enum": ["none", "low", "medium", "high", "xhigh"] },
+          "autoApprove": { "type": "boolean" },
+          "permissions": {
+            "type": "object",
+            "properties": {
+              "mode": { "enum": ["read-only", "write"] },
+              "tools": { "type": "array", "items": { "type": "string" } },
+              "mcp": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

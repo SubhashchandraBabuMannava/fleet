@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fleet models.yaml",
+  "type": "object",
+  "required": ["models"],
+  "properties": {
+    "models": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["provider", "baseUrl", "modelId", "modalities"],
+        "properties": {
+          "provider": { "type": "string" },
+          "baseUrl": { "type": "string" },
+          "modelId": { "type": "string" },
+          "apiKeyEnv": { "type": ["string", "null"] },
+          "modalities": {
+            "type": "array",
+            "items": { "enum": ["text", "image", "audio", "video"] }
+          },
+          "contextWindow": { "type": "number", "minimum": 1 },
+          "outputBudget": { "type": "number", "minimum": 1 },
+          "reasoning": { "enum": ["none", "low", "medium", "high", "xhigh"] },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}
