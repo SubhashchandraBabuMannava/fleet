@@ -3,7 +3,7 @@ import path from "node:path";
 import { readText } from "./util.js";
 
 export function runsDir(projectDir = process.cwd()) {
-  return path.join(projectDir, ".cline-runs");
+  return path.join(projectDir, ".fleet-runs");
 }
 
 export function listRuns(projectDir = process.cwd()) {

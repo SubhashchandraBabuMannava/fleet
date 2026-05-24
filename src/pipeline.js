@@ -85,7 +85,7 @@ export async function runPipeline({
   });
 
   const runId = timestamp();
-  const runDir = path.join(cwd, ".cline-runs", runId);
+  const runDir = path.join(cwd, ".fleet-runs", runId);
   ensureDir(runDir);
   const manifest = {
     runId,

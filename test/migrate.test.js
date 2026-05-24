@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseLegacyScript, buildConfigFromLegacy } from "../src/migrate.js";
+import { parseLegacyScript, buildConfigFromLegacy, buildDefaultConfig } from "../src/migrate.js";
 
 const legacy = `AGENTS=(
   "coord|https://integrate.api.nvidia.com/v1|z-ai/glm-5.1|NVIDIA_1_API_KEY|final|final coordinator|high|false"
@@ -27,4 +27,12 @@ test("builds editable config documents", () => {
   assert.deepEqual(qwen.modalities, ["text", "image"]);
   assert.equal(generated.pipelines.pipelines.default.phases.some((phase) => phase.name === "implement"), false);
   assert.equal(generated.pipelines.pipelines.implement.phases.some((phase) => phase.name === "implement"), true);
+});
+
+test("builds a starter config without legacy bash", () => {
+  const generated = buildDefaultConfig();
+  assert.ok(generated.models.models["local-model"]);
+  assert.ok(generated.agents.agents.some((agent) => agent.name === "coder"));
+  assert.ok(generated.pipelines.pipelines.default);
+  assert.ok(generated.pipelines.pipelines.implement);
 });

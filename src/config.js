@@ -37,7 +37,7 @@ export function loadConfig() {
   const agentsDoc = loadYaml(AGENTS_FILE, null);
   const pipelinesDoc = loadYaml(PIPELINES_FILE, null);
   if (!modelsDoc || !agentsDoc || !pipelinesDoc) {
-    throw new Error(`Missing fleet config. Run: cline-fleet init`);
+    throw new Error(`Missing fleet config. Run: fleet init`);
   }
 
   const models = normalizeMap(modelsDoc.models || modelsDoc, "alias");

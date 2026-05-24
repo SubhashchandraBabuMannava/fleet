@@ -8,9 +8,9 @@ Fleet keeps Cline as the default coding worker, but agents can also use Claude C
 
 ```bash
 npm install
-cline-fleet init
-cline-fleet doctor
-cline-fleet studio
+fleet init
+fleet doctor
+fleet studio
 ```
 
 Open:
@@ -22,14 +22,14 @@ http://127.0.0.1:3127
 The default run is read-only:
 
 ```bash
-cline-fleet run --dry-run "Inspect this repo and propose a plan"
-cline-fleet run "Inspect this repo and propose a plan"
+fleet run --dry-run "Inspect this repo and propose a plan"
+fleet run "Inspect this repo and propose a plan"
 ```
 
 Implementation is explicit:
 
 ```bash
-cline-fleet run --implement "Refactor the auth middleware safely"
+fleet run --implement "Refactor the auth middleware safely"
 ```
 
 ## Concepts
@@ -38,21 +38,21 @@ cline-fleet run --implement "Refactor the auth middleware safely"
 - **Agents** live in `agents.yaml`: name, role preset, runtime, model, profile, prompt file, phase, and permissions.
 - **Pipelines** live in `pipelines.yaml`: ordered phases, parallel/sequential mode, context inputs, compaction, and output limits.
 - **Prompts** live in `prompts/*.md`: editable per-agent instructions.
-- **Runs** write to `.cline-runs/<timestamp>/`: manifest, logs, phase outputs, diff, and summary.
+- **Runs** write to `.fleet-runs/<timestamp>/`: manifest, logs, phase outputs, diff, and summary.
 
 ## CLI
 
 ```bash
-cline-fleet init [--force] [--source legacy-script]
-cline-fleet validate
-cline-fleet doctor [--json]
-cline-fleet roles
-cline-fleet models
-cline-fleet pipelines
-cline-fleet runtimes
-cline-fleet run [--dry-run] [--implement] [--worktree] [--cwd DIR] "task"
-cline-fleet runs [--project DIR] [run-id] [file]
-cline-fleet studio [--host 127.0.0.1] [--port 3127]
+fleet init [--force] [--source legacy-script]
+fleet validate
+fleet doctor [--json]
+fleet roles
+fleet models
+fleet pipelines
+fleet runtimes
+fleet run [--dry-run] [--implement] [--worktree] [--cwd DIR] "task"
+fleet runs [--project DIR] [run-id] [file]
+fleet studio [--host 127.0.0.1] [--port 3127]
 ```
 
 ## Safety Defaults
@@ -74,4 +74,4 @@ cline-fleet studio [--host 127.0.0.1] [--port 3127]
 
 ## Publishing Notes
 
-Before publishing, replace local absolute paths in any checked-in examples with generic paths, keep API keys in env vars only, and do not commit `.cline-runs/`, `.cline-models/`, or personal config.
+Before publishing, replace local absolute paths in any checked-in examples with generic paths, keep API keys in env vars only, and do not commit `.fleet-runs/`, `.fleet/profiles/cline/`, or personal config.

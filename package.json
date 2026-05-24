@@ -1,11 +1,11 @@
 {
-  "name": "cline-fleet-control-plane",
+  "name": "@subhashchandrababu/fleet",
   "version": "1.0.0",
   "description": "Config-driven local multi-agent control plane with pluggable worker runtimes.",
   "private": true,
   "type": "module",
   "bin": {
-    "cline-fleet": "./src/cli.js"
+    "fleet": "./src/cli.js"
   },
   "scripts": {
     "check": "for f in src/*.js; do node --check \"$f\" || exit 1; done",

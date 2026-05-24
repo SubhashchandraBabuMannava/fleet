@@ -112,8 +112,8 @@ async function cmdRun(args) {
 
   await runPipeline({
     ...opts,
-    maxAttempts: Number(flags["max-attempts"] || process.env.CLINE_FLEET_MAX_ATTEMPTS || 1),
-    retrySleepMs: Number(flags["retry-sleep-seconds"] || process.env.CLINE_FLEET_RETRY_SLEEP_SECONDS || 0) * 1000
+    maxAttempts: Number(flags["max-attempts"] || process.env.FLEET_MAX_ATTEMPTS || 1),
+    retrySleepMs: Number(flags["retry-sleep-seconds"] || process.env.FLEET_RETRY_SLEEP_SECONDS || 0) * 1000
   });
   return 0;
 }
@@ -121,10 +121,10 @@ async function cmdRun(args) {
 function cmdStudio(args) {
   const { flags } = parseFlags(args);
   const server = startStudio({
-    host: flags.host || process.env.CLINE_FLEET_STUDIO_HOST || "127.0.0.1",
-    port: Number(flags.port || process.env.CLINE_FLEET_STUDIO_PORT || 3127)
+    host: flags.host || process.env.FLEET_STUDIO_HOST || "127.0.0.1",
+    port: Number(flags.port || process.env.FLEET_STUDIO_PORT || 3127)
   });
-  globalThis.__clineFleetStudioServer = server;
+  globalThis.__fleetStudioServer = server;
   return new Promise((resolve, reject) => {
     server.on("close", resolve);
     server.on("error", reject);
@@ -180,16 +180,16 @@ function cmdValidate() {
 
 function usage() {
   return `Usage:
-  cline-fleet init [--force] [--source /path/to/legacy-script]
-  cline-fleet doctor [--json]
-  cline-fleet run [--dry-run] [--implement] [--worktree] [--cwd DIR] [--pipeline NAME] [--requires vision] "task"
-  cline-fleet studio [--host 127.0.0.1] [--port 3127]
-  cline-fleet runs [--project DIR] [run-id] [file]
-  cline-fleet roles
-  cline-fleet models
-  cline-fleet pipelines
-  cline-fleet runtimes
-  cline-fleet validate
+  fleet init [--force] [--source /path/to/legacy-script]
+  fleet doctor [--json]
+  fleet run [--dry-run] [--implement] [--worktree] [--cwd DIR] [--pipeline NAME] [--requires vision] "task"
+  fleet studio [--host 127.0.0.1] [--port 3127]
+  fleet runs [--project DIR] [run-id] [file]
+  fleet roles
+  fleet models
+  fleet pipelines
+  fleet runtimes
+  fleet validate
 
 Defaults:
   run uses the read-only default pipeline.

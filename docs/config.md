@@ -1,6 +1,6 @@
 # Configuration
 
-Fleet uses three YAML files, usually under `~/.config/cline-fleet`.
+Fleet uses three YAML files, usually under `~/.config/fleet`.
 
 ## models.yaml
 

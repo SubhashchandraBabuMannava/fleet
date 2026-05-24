@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_FLEET_SCRIPT, PROMPTS_DIR } from "./paths.js";
 import { configExists, ensureConfigDirs, saveRawConfig } from "./config.js";
-import { rolePreset } from "./presets.js";
+import { ROLE_PRESETS, rolePreset } from "./presets.js";
 import { readText, timestamp, writeText } from "./util.js";
 
 export function parseBashArray(source, name) {
@@ -188,6 +188,47 @@ export function buildConfigFromLegacy({ agents, phaseModes }) {
   };
 }
 
+export function buildDefaultConfig() {
+  const modelAlias = "local-model";
+  const phaseModes = [
+    { name: "recon", mode: "parallel" },
+    { name: "compact", mode: "sequential" },
+    { name: "plan", mode: "sequential" },
+    { name: "implement", mode: "sequential" },
+    { name: "review", mode: "parallel" },
+    { name: "final", mode: "sequential" }
+  ];
+  const agents = ROLE_PRESETS.map((preset) => ({
+    name: preset.id,
+    baseUrl: "http://localhost:1234/v1",
+    modelId: "local-model-id",
+    apiKeyEnv: "NONE",
+    phase: preset.phase,
+    role: preset.role,
+    thinking: preset.thinking,
+    autoApprove: String(preset.autoApprove)
+  }));
+  const generated = buildConfigFromLegacy({ agents, phaseModes });
+  generated.models.models = {
+    [modelAlias]: {
+      provider: "openai-compatible",
+      baseUrl: "http://localhost:1234/v1",
+      modelId: "local-model-id",
+      apiKeyEnv: null,
+      modalities: ["text"],
+      contextWindow: 32768,
+      outputBudget: 4000,
+      reasoning: "medium",
+      notes: "Editable starter model. Use Studio model discovery to select an installed local model."
+    }
+  };
+  for (const agent of generated.agents.agents) {
+    agent.model = modelAlias;
+    agent.profile = agent.name;
+  }
+  return generated;
+}
+
 export function defaultPrompt(agent) {
   return [
     `You are the ${agent.role}.`,
@@ -205,10 +246,9 @@ export function initConfig({ source = DEFAULT_FLEET_SCRIPT, force = false } = {}
   }
 
   const legacy = parseLegacyScript(readText(source));
-  if (!legacy.agents.length) throw new Error(`No AGENTS block found in ${source}`);
 
   ensureConfigDirs();
-  const generated = buildConfigFromLegacy(legacy);
+  const generated = legacy.agents.length ? buildConfigFromLegacy(legacy) : buildDefaultConfig();
 
   if (configExists()) {
     const stamp = timestamp();

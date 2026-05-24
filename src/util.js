@@ -52,7 +52,7 @@ export function unique(values) {
 export function bytesLimit(text, maxBytes) {
   if (!maxBytes || Buffer.byteLength(text) <= maxBytes) return text;
   const buf = Buffer.from(text);
-  return buf.subarray(0, maxBytes).toString("utf8") + "\n\n[truncated by cline-fleet]\n";
+  return buf.subarray(0, maxBytes).toString("utf8") + "\n\n[truncated by fleet]\n";
 }
 
 export function shellQuote(arg) {
