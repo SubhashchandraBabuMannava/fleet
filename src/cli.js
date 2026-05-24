@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import process from "node:process";
-import { initConfig } from "./migrate.js";
+import { initConfig } from "./setup.js";
+import { resetFleet } from "./reset.js";
 import { doctor, formatDoctor } from "./doctor.js";
 import { dryRun, runPipeline } from "./pipeline.js";
 import { startStudio } from "./studio.js";
 import { formatRuns } from "./runs.js";
 import { expandHome } from "./paths.js";
-import { loadConfig } from "./config.js";
+import { assertSetupComplete, loadConfig } from "./config.js";
 import { ROLE_PRESETS } from "./presets.js";
 import { runtimeStatuses } from "./runtimes.js";
 
@@ -16,6 +17,8 @@ async function main(argv = process.argv.slice(2)) {
     switch (cmd || "help") {
       case "init":
         return cmdInit(rest);
+      case "reset":
+        return cmdReset(rest);
       case "doctor":
         return await cmdDoctor(rest);
       case "run":
@@ -57,7 +60,7 @@ function parseFlags(args) {
       positional.push(arg);
       continue;
     }
-    if (["--implement", "--dry-run", "--worktree", "--force", "--json"].includes(arg)) {
+    if (["--implement", "--dry-run", "--worktree", "--force", "--json", "--factory", "--yes", "--runs"].includes(arg)) {
       flags[arg.slice(2)] = true;
       continue;
     }
@@ -72,11 +75,27 @@ function parseFlags(args) {
 
 function cmdInit(args) {
   const { flags } = parseFlags(args);
-  const result = initConfig({ source: flags.source, force: !!flags.force });
-  console.log(`Initialized Fleet config in ${result.configDir}`);
-  console.log(`Models: ${result.models}`);
-  console.log(`Agents: ${result.agents}`);
-  console.log(`Pipelines: ${result.pipelines.join(", ")}`);
+  if (flags.source) throw new Error("The --source option has been removed. Use Fleet Studio for first-run setup.");
+  const result = initConfig({ force: !!flags.force });
+  console.log(`Initialized empty Fleet config in ${result.configDir}`);
+  console.log(result.next);
+  return 0;
+}
+
+function cmdReset(args) {
+  const { flags } = parseFlags(args);
+  const result = resetFleet({
+    factory: !!flags.factory,
+    yes: !!flags.yes,
+    runs: !!flags.runs,
+    cwd: expandHome(flags.cwd || flags.c || process.cwd())
+  });
+  console.log("Fleet factory reset complete.");
+  if (result.removed.length) {
+    for (const target of result.removed) console.log(`Removed: ${target}`);
+  } else {
+    console.log("No Fleet local state was present.");
+  }
   return 0;
 }
 
@@ -147,6 +166,7 @@ function cmdRoles() {
 
 function cmdModels() {
   const config = loadConfig();
+  assertSetupComplete(config);
   for (const [alias, model] of Object.entries(config.models)) {
     console.log(`${alias}\t${model.modelId}\t${model.baseUrl}\t${(model.modalities || []).join(",")}\tctx=${model.contextWindow || "?"}`);
   }
@@ -155,6 +175,7 @@ function cmdModels() {
 
 function cmdPipelines() {
   const config = loadConfig();
+  assertSetupComplete(config);
   for (const [name, pipeline] of Object.entries(config.pipelines)) {
     const phases = (pipeline.phases || []).map((phase) => phase.name).join(" -> ");
     console.log(`${name}\t${phases}`);
@@ -163,7 +184,12 @@ function cmdPipelines() {
 }
 
 function cmdRuntimes() {
-  const config = loadConfig();
+  let config = null;
+  try {
+    config = loadConfig();
+  } catch {
+    config = null;
+  }
   for (const runtime of runtimeStatuses(config)) {
     const installed = runtime.installed ? "installed" : "missing";
     const version = runtime.version ? ` ${runtime.version}` : "";
@@ -174,13 +200,15 @@ function cmdRuntimes() {
 
 function cmdValidate() {
   const config = loadConfig();
+  assertSetupComplete(config);
   console.log(`Config OK: ${Object.keys(config.models).length} models, ${config.agents.length} agents, ${Object.keys(config.pipelines).length} pipelines`);
   return 0;
 }
 
 function usage() {
   return `Usage:
-  fleet init [--force] [--source /path/to/legacy-script]
+  fleet init [--force]
+  fleet reset --factory --yes [--runs] [--cwd DIR]
   fleet doctor [--json]
   fleet run [--dry-run] [--implement] [--worktree] [--cwd DIR] [--pipeline NAME] [--requires vision] "task"
   fleet studio [--host 127.0.0.1] [--port 3127]

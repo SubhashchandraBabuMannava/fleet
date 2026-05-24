@@ -8,8 +8,6 @@ Fleet keeps Cline as the default coding worker, but agents can also use Claude C
 
 ```bash
 npm install
-fleet init
-fleet doctor
 fleet studio
 ```
 
@@ -19,7 +17,17 @@ Open:
 http://127.0.0.1:3127
 ```
 
-The default run is read-only:
+On first launch, Fleet Studio opens the setup wizard. Discover your local model endpoint, add a model such as `qwen-pc`, choose a team template, review permissions/context settings, save, then run Doctor and a dry run.
+
+CLI scaffolding is optional:
+
+```bash
+fleet init
+```
+
+It creates empty config files only; the wizard is still the intended setup path.
+
+The default run is read-only after setup:
 
 ```bash
 fleet run --dry-run "Inspect this repo and propose a plan"
@@ -43,7 +51,8 @@ fleet run --implement "Refactor the auth middleware safely"
 ## CLI
 
 ```bash
-fleet init [--force] [--source legacy-script]
+fleet init [--force]
+fleet reset --factory --yes [--runs] [--cwd DIR]
 fleet validate
 fleet doctor [--json]
 fleet roles
@@ -60,6 +69,7 @@ fleet studio [--host 127.0.0.1] [--port 3127]
 - The default pipeline uses read-only planning behavior.
 - Code-writing agents only run when `--implement` is set or a custom write pipeline is selected.
 - Write phases require a write-capable runtime. Direct API workers are read-only by design.
+- `qwen-pc` is recommended for direct read-only local roles. Cline remains available for tool-using workers, but Doctor and dry-run warn about risky model/runtime pairings.
 - Model modality gates prevent image-dependent tasks from silently using text-only models.
 - Doctor checks runtimes, profile settings, endpoint reachability, and model ID mismatches before you burn time on a run.
 

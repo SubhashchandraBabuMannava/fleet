@@ -56,7 +56,7 @@ export const ROLE_PRESETS = [
     id: "planner",
     label: "Planner",
     phase: "plan",
-    role: "architecture and migration planner",
+    role: "implementation planner",
     thinking: "high",
     autoApprove: true,
     permissions: {
@@ -158,6 +158,18 @@ export const ROLE_PRESETS = [
 
 export const MODEL_TEMPLATES = [
   {
+    id: "lm-studio-qwen-pc",
+    label: "LM Studio qwen-pc",
+    provider: "openai-compatible",
+    baseUrl: "http://localhost:1234/v1",
+    modelId: "qwen-pc",
+    apiKeyEnv: null,
+    modalities: ["text"],
+    contextWindow: 131072,
+    outputBudget: 4000,
+    reasoning: "medium"
+  },
+  {
     id: "openai-compatible-local",
     label: "Local OpenAI-Compatible",
     provider: "openai-compatible",
@@ -166,18 +178,6 @@ export const MODEL_TEMPLATES = [
     apiKeyEnv: null,
     modalities: ["text"],
     contextWindow: 32768,
-    outputBudget: 4000,
-    reasoning: "medium"
-  },
-  {
-    id: "lm-studio-vision",
-    label: "LM Studio Vision",
-    provider: "openai-compatible",
-    baseUrl: "http://localhost:1234/v1",
-    modelId: "qwen/qwen3.6-27b",
-    apiKeyEnv: null,
-    modalities: ["text", "image"],
-    contextWindow: 131072,
     outputBudget: 4000,
     reasoning: "medium"
   },

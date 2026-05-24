@@ -87,6 +87,7 @@ export function runtimeCompatibilityIssues({ config, pipeline, required = ["text
       const runtimeId = normalizeRuntime(agent.runtime);
       const definition = runtimeDefinition(runtimeId);
       const status = statuses.get(runtimeId);
+      const model = config.models?.[agent.model];
       const title = `${phase.name}/${agent.name}`;
       const writePhase = phase.readOnly === false || (agent.permissions?.mode || "read-only") === "write";
       const needsMcp = agent.permissions?.mcp && agent.permissions.mcp !== "none";
@@ -129,6 +130,10 @@ export function runtimeCompatibilityIssues({ config, pipeline, required = ["text
       if (definition.maturity === "experimental") {
         issues.push(issue("warn", "runtime-experimental", title, `${definition.label} support is experimental. Keep first runs dry until the command preview looks right.`, { agent: agent.name, phase: phase.name, runtime: runtimeId }));
       }
+
+      if (definition.id === "cline" && /qwen-pc/i.test(model?.modelId || "")) {
+        issues.push(issue("warn", "cline-qwen-pc-tool-risk", title, "qwen-pc works well as a direct read-only worker, but may not reliably follow Cline tool-call schemas. Prefer Direct API for read-only roles.", { agent: agent.name, phase: phase.name, runtime: runtimeId }));
+      }
     }
   }
 
@@ -144,9 +149,13 @@ export function assertRuntimeCompatibility(options) {
   return issues;
 }
 
-export async function discoverModels(config) {
+const DEFAULT_DISCOVERY_ENDPOINTS = [
+  { baseUrl: "http://localhost:1234/v1", apiKeyEnv: null }
+];
+
+export async function discoverModels(config = null, { endpoints = DEFAULT_DISCOVERY_ENDPOINTS, fetchImpl = fetch } = {}) {
   const groups = new Map();
-  for (const [alias, model] of Object.entries(config.models || {})) {
+  for (const [alias, model] of Object.entries(config?.models || {})) {
     const key = `${model.baseUrl || ""}|${model.apiKeyEnv || ""}`;
     const group = groups.get(key) || {
       baseUrl: model.baseUrl,
@@ -160,6 +169,20 @@ export async function discoverModels(config) {
     groups.set(key, group);
   }
 
+  for (const endpoint of endpoints) {
+    const key = `${endpoint.baseUrl || ""}|${endpoint.apiKeyEnv || ""}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        baseUrl: endpoint.baseUrl,
+        apiKeyEnv: endpoint.apiKeyEnv || null,
+        aliases: [],
+        ok: false,
+        ids: [],
+        error: ""
+      });
+    }
+  }
+
   const out = [];
   for (const group of groups.values()) {
     const url = String(group.baseUrl || "").replace(/\/+$/, "") + "/models";
@@ -169,7 +192,7 @@ export async function discoverModels(config) {
         const key = readEnvValue(group.apiKeyEnv);
         if (key) headers.Authorization = `Bearer ${key}`;
       }
-      const res = await fetch(url, { headers, signal: AbortSignal.timeout(7000) });
+      const res = await fetchImpl(url, { headers, signal: AbortSignal.timeout(7000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = await res.json();
       group.ok = true;

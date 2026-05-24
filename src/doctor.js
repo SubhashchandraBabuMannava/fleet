@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { loadConfig, agentProfileDir, getModel } from "./config.js";
+import { hasRunnableConfig, loadConfig, agentProfileDir, getModel } from "./config.js";
 import { ENV_FILE } from "./paths.js";
 import { extractModelIds, normalizeRuntime, runtimeStatuses } from "./runtimes.js";
 import { readEnvValue } from "./util.js";
@@ -21,19 +21,16 @@ export async function doctor() {
     config = loadConfig();
     add("ok", "config", `Loaded ${config.agents.length} agents, ${Object.keys(config.models).length} models.`);
   } catch (error) {
-    add("error", "config", error.message);
+    add("error", "setup", error.message);
+    addRuntimeChecks(null, add);
     return report;
   }
 
-  const runtimes = runtimeStatuses(config);
-  for (const runtime of runtimes) {
-    if (runtime.installed) {
-      add("ok", `runtime:${runtime.id}`, `${runtime.label}: ${runtime.version || runtime.installDetail}`);
-    } else {
-      const used = config.agents.some((agent) => normalizeRuntime(agent.runtime) === runtime.id);
-      add(used ? "error" : "info", `runtime:${runtime.id}`, runtime.installDetail);
-    }
+  if (!hasRunnableConfig(config)) {
+    add("error", "setup", "Add at least one model, one agent, and one workflow in Fleet Studio.");
   }
+
+  addRuntimeChecks(config, add);
 
   for (const agent of config.agents) {
     if (normalizeRuntime(agent.runtime) !== "cline") continue;
@@ -55,6 +52,18 @@ export async function doctor() {
   }
 
   return report;
+}
+
+function addRuntimeChecks(config, add) {
+  const runtimes = runtimeStatuses(config);
+  for (const runtime of runtimes) {
+    if (runtime.installed) {
+      add("ok", `runtime:${runtime.id}`, `${runtime.label}: ${runtime.version || runtime.installDetail}`);
+    } else {
+      const used = (config?.agents || []).some((agent) => normalizeRuntime(agent.runtime) === runtime.id);
+      add(used ? "error" : "info", `runtime:${runtime.id}`, runtime.installDetail);
+    }
+  }
 }
 
 function compareProviderSettings(agent, model, providersFile, add) {

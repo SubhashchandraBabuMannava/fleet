@@ -6,12 +6,12 @@ Fleet uses three YAML files, usually under `~/.config/fleet`.
 
 ```yaml
 models:
-  local-qwen:
+  qwen-pc:
     provider: openai-compatible
     baseUrl: http://localhost:1234/v1
-    modelId: qwen/qwen3.6-27b
+    modelId: qwen-pc
     apiKeyEnv: null
-    modalities: [text, image]
+    modalities: [text]
     contextWindow: 131072
     outputBudget: 4000
     reasoning: medium
@@ -23,9 +23,9 @@ models:
 agents:
   - name: planner
     rolePreset: planner
-    runtime: cline
-    role: architecture and migration planner
-    model: local-qwen
+    runtime: openai-compatible-direct
+    role: implementation planner
+    model: qwen-pc
     profile: planner
     phase: plan
     prompt: prompts/planner.md
@@ -34,7 +34,7 @@ agents:
     permissions:
       mode: read-only
       tools: [read, search]
-      mcp: profile
+      mcp: none
 ```
 
 `runtime` defaults to `cline` when omitted. Supported values are `cline`, `claude-code`, `codex`, `openai-compatible-direct`, `custom-command`, and `aider`.

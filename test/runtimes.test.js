@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_RUNTIME, RUNTIME_DEFINITIONS } from "../src/runtime-definitions.js";
 import {
   normalizeRuntime,
+  discoverModels,
   runtimeCommandPreview,
   runtimeCompatibilityIssues,
   suggestModelId
@@ -22,7 +23,7 @@ const config = {
     qwen: {
       provider: "openai-compatible",
       baseUrl: "http://localhost:1234/v1",
-      modelId: "qwen/qwen3.6-27b/SilverMacOne",
+      modelId: "qwen-pc",
       modalities: ["text", "image"],
       contextWindow: 131072,
       outputBudget: 4000,
@@ -103,7 +104,20 @@ test("custom command runtime reports missing command and MCP warning", () => {
 
 test("model discovery suggests parent endpoint IDs for host-suffixed local IDs", () => {
   assert.equal(
-    suggestModelId("qwen/qwen3.6-27b/SilverMacOne", ["qwen/qwen3.6-27b"]),
-    "qwen/qwen3.6-27b"
+    suggestModelId("model-family/OfficeMac", ["model-family"]),
+    "model-family"
   );
+});
+
+test("model discovery can probe LM Studio before config exists", async () => {
+  const endpoints = await discoverModels(null, {
+    endpoints: [{ baseUrl: "http://localhost:1234/v1", apiKeyEnv: null }],
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({ data: [{ id: "qwen-pc" }] })
+    })
+  });
+  assert.equal(endpoints.length, 1);
+  assert.equal(endpoints[0].ok, true);
+  assert.deepEqual(endpoints[0].ids, ["qwen-pc"]);
 });

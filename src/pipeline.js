@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { loadConfig, getAgent } from "./config.js";
+import { assertSetupComplete, loadConfig, getAgent } from "./config.js";
 import { assertModalities, inferRequiredModalities } from "./prompts.js";
 import { assertRuntimeCompatibility, normalizeRuntime, runRuntimeAgent, runtimeCommandPreview, runtimeCompatibilityIssues, runtimeMetadata } from "./runtimes.js";
 import { bytesLimit, ensureDir, listFiles, readText, runCapture, timestamp, writeText } from "./util.js";
@@ -14,6 +14,7 @@ export function selectPipeline(config, implement = false, name = null) {
 
 export function dryRun({ task, cwd = process.cwd(), implement = false, pipelineName = null, requires = [], worktree = false }) {
   const config = loadConfig();
+  assertSetupComplete(config);
   const selected = selectPipeline(config, implement, pipelineName);
   const required = inferRequiredModalities(task, requires);
   assertModalities({ config, pipeline: selected.pipeline, required });
@@ -73,6 +74,7 @@ export async function runPipeline({
   onOutput = (text) => process.stdout.write(text)
 }) {
   const config = loadConfig();
+  assertSetupComplete(config);
   const selected = selectPipeline(config, implement, pipelineName);
   const required = inferRequiredModalities(task, requires);
   assertModalities({ config, pipeline: selected.pipeline, required });

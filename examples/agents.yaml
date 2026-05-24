@@ -1,9 +1,9 @@
 agents:
   - name: recon
     rolePreset: repo-mapper
-    runtime: cline
+    runtime: openai-compatible-direct
     role: read-only repo mapper
-    model: local-qwen-vision
+    model: qwen-pc
     profile: recon
     phase: recon
     prompt: prompts/recon.md
@@ -12,12 +12,12 @@ agents:
     permissions:
       mode: read-only
       tools: [read, search]
-      mcp: profile
+      mcp: none
   - name: planner
     rolePreset: planner
     runtime: openai-compatible-direct
-    role: architecture and migration planner
-    model: nvidia-glm-text
+    role: implementation planner
+    model: qwen-pc
     profile: planner
     phase: plan
     prompt: prompts/planner.md

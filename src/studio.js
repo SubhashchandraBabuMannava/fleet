@@ -24,9 +24,9 @@ export function createStudioApp() {
     try {
       res.json({
         configDir: CONFIG_DIR,
-        models: readText(MODELS_FILE),
-        agents: readText(AGENTS_FILE),
-        pipelines: readText(PIPELINES_FILE)
+        models: readTextOr(MODELS_FILE, "models: {}\n"),
+        agents: readTextOr(AGENTS_FILE, "agents: []\n"),
+        pipelines: readTextOr(PIPELINES_FILE, "pipelines: {}\n")
       });
     } catch (error) {
       next(error);
@@ -47,7 +47,8 @@ export function createStudioApp() {
         presets: {
           roles: ROLE_PRESETS,
           models: MODEL_TEMPLATES,
-          pipelines: PIPELINE_TEMPLATES
+          pipelines: PIPELINE_TEMPLATES,
+          teams: teamTemplates()
         }
       });
     } catch (error) {
@@ -80,7 +81,13 @@ export function createStudioApp() {
 
   app.get("/api/discover/models", async (_, res, next) => {
     try {
-      res.json({ endpoints: await discoverModels(loadConfig()) });
+      let config = null;
+      try {
+        config = loadConfig();
+      } catch {
+        config = null;
+      }
+      res.json({ endpoints: await discoverModels(config) });
     } catch (error) {
       next(error);
     }
@@ -88,10 +95,15 @@ export function createStudioApp() {
 
   app.get("/api/issues", async (_, res, next) => {
     try {
-      const config = loadConfig();
+      let config = null;
+      try {
+        config = loadConfig();
+      } catch {
+        config = null;
+      }
       const report = await doctor();
       const compatibility = [];
-      for (const [name, pipeline] of Object.entries(config.pipelines)) {
+      for (const [name, pipeline] of Object.entries(config?.pipelines || {})) {
         compatibility.push(...runtimeCompatibilityIssues({
           config,
           pipeline,
@@ -321,6 +333,10 @@ function normalizeIssues(report, compatibility = []) {
   });
 }
 
+function readTextOr(file, fallback) {
+  return fs.existsSync(file) ? readText(file) : fallback;
+}
+
 function teamTemplates() {
   return [
     {
@@ -328,21 +344,24 @@ function teamTemplates() {
       label: "Safe Planning Team",
       description: "Read-only mapper, skeptic, planner, reviewers, and final coordinator.",
       roles: ["repo-mapper", "skeptic", "compactor", "planner", "reviewer", "security-reviewer", "test-reviewer", "coordinator"],
-      pipeline: "default"
+      pipeline: "default",
+      phases: ["recon", "compact", "plan", "review", "final"]
     },
     {
       id: "implementation",
       label: "Implementation Team",
       description: "Safe planning team plus an explicit coder role for --implement runs.",
       roles: ["repo-mapper", "skeptic", "compactor", "planner", "coder", "reviewer", "security-reviewer", "test-reviewer", "coordinator"],
-      pipeline: "implement"
+      pipeline: "implement",
+      phases: ["recon", "compact", "plan", "implement", "capture_diff", "review", "final"]
     },
     {
       id: "compact",
       label: "Small Local Team",
       description: "One mapper, one planner, one reviewer, and one coordinator for local models with tighter context.",
       roles: ["repo-mapper", "planner", "reviewer", "coordinator"],
-      pipeline: "default"
+      pipeline: "default",
+      phases: ["recon", "plan", "review", "final"]
     }
   ];
 }
@@ -381,7 +400,7 @@ const INDEX_HTML = String.raw`<!doctype html>
 <div class="cards wizard">
 <div class="card step"><div><div class="card-title">Check workers</div><div class="muted">Cline is the default. Claude Code, Codex, direct API, custom commands, and Aider can be selected per role.</div><div id="runtimeCards" style="margin-top:10px"></div></div></div>
 <div class="card step"><div><div class="card-title">Fix model IDs</div><div class="muted">Discover compares your configured IDs with endpoint /models results and suggests safe fixes.</div><div data-model-discovery style="margin-top:10px"></div></div></div>
-<div class="card step"><div><div class="card-title">Choose team roles</div><div class="muted">Use role presets for mapper, skeptic, planner, coder, reviewers, and coordinator.</div><div class="row" style="margin-top:10px"><button data-jump="agents">Edit Team</button><button data-jump="pipelines">Edit Workflow</button></div></div></div>
+<div class="card step"><div><div class="card-title">Choose team roles</div><div class="muted">Use a template to create the first team, then tune roles and workflow as needed.</div><div id="teamTemplateCards" style="margin-top:10px"></div><div class="row" style="margin-top:10px"><button data-jump="agents">Edit Team</button><button data-jump="pipelines">Edit Workflow</button></div></div></div>
 <div class="card step"><div><div class="card-title">Review permissions</div><div class="muted">Default runs are read-only. Write phases require implementation mode and a write-capable runtime.</div><div class="row" style="margin-top:10px"><button data-jump="agents">Permissions</button><button data-jump="advanced">YAML</button></div></div></div>
 <div class="card step"><div><div class="card-title">Run safe preview</div><div class="muted">Dry run prints phase graph and worker commands without calling models.</div><div class="row" style="margin-top:10px"><button class="primary" data-jump="run">Open Runs</button></div></div></div>
 </div>
@@ -424,20 +443,25 @@ function csv(v){return arr(v).join(", ")}
 function clone(o){return JSON.parse(JSON.stringify(o))}
 function uniqueName(base,used){let n=base,i=2;while(used.includes(n)){n=base+"-"+i;i++}return n}
 function tab(t){$$(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));$$(".panel").forEach(p=>p.classList.toggle("active",p.dataset.panel===t));const active=$(".nav button.active");$("#title").textContent=active?active.textContent:(t[0].toUpperCase()+t.slice(1))}
-async function loadState(){state=await api("/api/state");$("#configDir").textContent=state.configDir;selectedPipeline=selectedPipeline||((state.pipelines[0]||{}).name||"");renderAll();loadIssues().catch(e=>{$("#issueList").innerHTML="<div class='issue warn'><strong>Health checks unavailable</strong><div class='muted'>"+esc(e.message)+"</div></div>"});setStatus("Loaded",true)}
+async function loadState(){state=await api("/api/state");$("#configDir").textContent=state.configDir;selectedPipeline=selectedPipeline||((state.pipelines[0]||{}).name||"");renderAll();if(state.setupNeeded)tab("setup");loadIssues().catch(e=>{$("#issueList").innerHTML="<div class='issue warn'><strong>Health checks unavailable</strong><div class='muted'>"+esc(e.message)+"</div></div>"});setStatus(state.setupNeeded?"Setup needed: discover a model, create a team, then Save Team.":"Loaded",true)}
 async function saveState(){await api("/api/state",{method:"POST",body:JSON.stringify({models:state.models,agents:state.agents,pipelines:state.pipelines})});await loadState();setStatus("Saved with backup",true)}
 async function saveYaml(){await api("/api/config",{method:"POST",body:JSON.stringify({models:$("#modelsYaml").value,agents:$("#agentsYaml").value,pipelines:$("#pipelinesYaml").value})});selectedPipeline="";await loadState();setStatus("YAML saved with backup",true)}
-function renderAll(){renderStats();renderPresets();renderRuntimeCards();renderDiscovery();renderModels();renderAgents();renderPipelines();renderRunPipeline();renderAdvanced();renderOverview();renderIssues()}
+function renderAll(){renderStats();renderPresets();renderRuntimeCards();renderDiscovery();renderTeamTemplates();renderModels();renderAgents();renderPipelines();renderRunPipeline();renderAdvanced();renderOverview();renderIssues()}
 function renderStats(){$("#modelCount").textContent=state.models.length;$("#agentCount").textContent=state.agents.length;$("#pipelineCount").textContent=state.pipelines.length}
 function renderPresets(){$("#modelTemplate").innerHTML=state.presets.models.map(p=>"<option value='"+esc(p.id)+"'>"+esc(p.label)+"</option>").join("");$("#rolePreset").innerHTML=state.presets.roles.map(p=>"<option value='"+esc(p.id)+"'>"+esc(p.label)+"</option>").join("");$("#newAgentModel").innerHTML=modelOptions("")}
 function modelOptions(sel){return state.models.map(m=>"<option value='"+esc(m.alias)+"' "+(m.alias===sel?"selected":"")+">"+esc(m.alias)+"</option>").join("")}
 function roleOptions(sel){return state.presets.roles.map(p=>"<option value='"+esc(p.id)+"' "+(p.id===sel?"selected":"")+">"+esc(p.label)+"</option>").join("")+"<option value='custom' "+(sel==="custom"?"selected":"")+">Custom</option>"}
 function runtimeOptions(sel){return (state.runtimes||[]).map(r=>"<option value='"+esc(r.id)+"' "+((sel||"cline")===r.id?"selected":"")+">"+esc(r.label)+" "+(r.installed?"":"(missing)")+"</option>").join("")}
-function renderOverview(){const rows=state.pipelines.map(p=>"<span class='pill'>"+esc(p.name)+": "+esc((p.phases||[]).map(x=>x.name).join(" -> "))+"</span>").join("");$("#overviewSummary").innerHTML=rows||"<span class='muted'>No pipelines configured.</span>"}
+function renderOverview(){if(state.setupNeeded){$("#overviewSummary").innerHTML="<div class='issue warn'><strong>Setup needed</strong><div>Start with the Setup wizard, discover a local model, create a team, and save.</div></div>";return}const rows=state.pipelines.map(p=>"<span class='pill'>"+esc(p.name)+": "+esc((p.phases||[]).map(x=>x.name).join(" -> "))+"</span>").join("");$("#overviewSummary").innerHTML=rows||"<span class='muted'>No pipelines configured.</span>"}
 function renderRuntimeCards(){const el=$("#runtimeCards");if(!el||!state)return;el.innerHTML=(state.runtimes||[]).map(r=>"<span class='badge "+(r.installed?"ok":"warn")+"'>"+esc(r.label)+" · "+(r.installed?"ready":"missing")+" · "+esc(r.maturity)+"</span>").join("")}
 async function loadIssues(){issuesLoaded=false;renderIssues();const d=await api("/api/issues");issues=d.issues||[];issuesLoaded=true;renderIssues()}
 function renderIssues(){const el=$("#issueList");if(!el)return;if(!issuesLoaded){el.innerHTML="<span class='muted'>Running health checks...</span>";return}if(!issues.length){el.innerHTML="<span class='badge ok'>No blocking setup issues found</span>";return}el.innerHTML=issues.map(i=>"<div class='issue "+esc(i.level)+"'><strong>"+esc(i.level.toUpperCase())+" · "+esc(i.title)+"</strong><div>"+esc(i.detail)+"</div>"+(i.code==="model-id-mismatch"?"<button data-jump='models' style='margin-top:8px'>Fix in Models</button>":"")+"</div>").join("");el.querySelectorAll("[data-jump]").forEach(b=>b.onclick=()=>tab(b.dataset.jump))}
-function renderDiscovery(){const els=$$("[data-model-discovery]");if(!els.length)return;let html="<span class='muted'>Run discovery to compare configured model IDs with live endpoints.</span>";if(discovery){const rows=[];for(const endpoint of discovery.endpoints||[]){rows.push("<div class='issue "+(endpoint.ok?"":"warn")+"'><strong>"+esc(endpoint.baseUrl)+"</strong><div class='muted'>"+(endpoint.ok?esc((endpoint.ids||[]).length+" models listed"):esc(endpoint.error||"Endpoint unavailable"))+"</div>"+(endpoint.aliases||[]).map(a=>"<div style='margin-top:6px'>"+esc(a.alias)+": <span class='"+(a.listed?"badge ok":"badge warn")+"'>"+esc(a.modelId)+"</span>"+(a.suggestion?" <button data-fix-model='"+esc(a.alias)+"' data-model-id='"+esc(a.suggestion)+"'>Use "+esc(a.suggestion)+"</button>":"")+"</div>").join("")+"</div>")}html=rows.join("")||"<span class='muted'>No model endpoints configured.</span>"}els.forEach(el=>{el.innerHTML=html;el.querySelectorAll("[data-fix-model]").forEach(b=>b.onclick=()=>{const m=state.models.find(x=>x.alias===b.dataset.fixModel);if(m){m.modelId=b.dataset.modelId;renderModels();renderDiscovery();setStatus("Model ID updated locally. Save Team to write YAML.",true)}})})}
+function renderDiscovery(){const els=$$("[data-model-discovery]");if(!els.length)return;let html="<span class='muted'>Run discovery to list local models and compare configured IDs.</span>";if(discovery){const rows=[];for(const endpoint of discovery.endpoints||[]){const ids=(endpoint.ids||[]).map(id=>"<span class='pill'>"+esc(id)+" <button data-add-discovered='"+esc(id)+"' data-base-url='"+esc(endpoint.baseUrl)+"'>Add</button></span>").join("");rows.push("<div class='issue "+(endpoint.ok?"":"warn")+"'><strong>"+esc(endpoint.baseUrl)+"</strong><div class='muted'>"+(endpoint.ok?esc((endpoint.ids||[]).length+" models listed"):esc(endpoint.error||"Endpoint unavailable"))+"</div>"+(endpoint.aliases||[]).map(a=>"<div style='margin-top:6px'>"+esc(a.alias)+": <span class='"+(a.listed?"badge ok":"badge warn")+"'>"+esc(a.modelId)+"</span>"+(a.suggestion?" <button data-fix-model='"+esc(a.alias)+"' data-model-id='"+esc(a.suggestion)+"'>Use "+esc(a.suggestion)+"</button>":"")+"</div>").join("")+(endpoint.ok?"<div style='margin-top:8px'>"+ids+"</div>":"")+"</div>")}html=rows.join("")||"<span class='muted'>No model endpoints found.</span>"}els.forEach(el=>{el.innerHTML=html;el.querySelectorAll("[data-fix-model]").forEach(b=>b.onclick=()=>{const m=state.models.find(x=>x.alias===b.dataset.fixModel);if(m){m.modelId=b.dataset.modelId;renderModels();renderDiscovery();setStatus("Model ID updated locally. Save Team to write YAML.",true)}});el.querySelectorAll("[data-add-discovered]").forEach(b=>b.onclick=()=>addDiscoveredModel(b.dataset.addDiscovered,b.dataset.baseUrl))})}
+function addDiscoveredModel(id,baseUrl){if(state.models.some(m=>m.modelId===id&&m.baseUrl===baseUrl)){setStatus("That model is already in your catalog.",true);return}const alias=uniqueName(id.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"model",state.models.map(m=>m.alias));const qwen=/qwen/i.test(id);state.models.push({alias,provider:"openai-compatible",baseUrl,modelId:id,apiKeyEnv:null,modalities:["text"],contextWindow:qwen?131072:32768,outputBudget:4000,reasoning:"medium",notes:id==="qwen-pc"?"Recommended for Direct API read-only Fleet roles.":"Discovered from local endpoint."});renderAll();setStatus("Model added. Choose a team template next, then Save Team.",true)}
+function renderTeamTemplates(){const el=$("#teamTemplateCards");if(!el||!state)return;el.innerHTML=(state.presets.teams||[]).map(t=>"<div class='issue'><strong>"+esc(t.label)+"</strong><div class='muted'>"+esc(t.description)+"</div><button style='margin-top:8px' data-team-template='"+esc(t.id)+"'>Use Template</button></div>").join("");el.querySelectorAll("[data-team-template]").forEach(b=>b.onclick=()=>applyTeamTemplate(b.dataset.teamTemplate))}
+function applyTeamTemplate(id){const template=(state.presets.teams||[]).find(t=>t.id===id);const model=(state.models||[])[0];if(!template){setStatus("Unknown team template.",false);return}if(!model){setStatus("Add a model before creating a team.",false);return}const used=[];state.agents=(template.roles||[]).map(roleId=>{const p=state.presets.roles.find(r=>r.id===roleId);const name=uniqueName(roleId,used);used.push(name);const runtime=defaultRuntimeForPreset(p);return{name,rolePreset:p.id,runtime,role:p.role,model:model.alias,profile:name,phase:p.phase,prompt:"prompts/"+name+".md",thinking:p.thinking,autoApprove:p.autoApprove,permissions:{...clone(p.permissions),mcp:runtime==="openai-compatible-direct"?"none":((p.permissions||{}).mcp||"profile")}}});state.pipelines=[buildPipelineFromTemplate(template,state.agents)];selectedPipeline=state.pipelines[0].name;renderAll();setStatus("Team created. Review permissions/context, then Save Team.",true)}
+function defaultRuntimeForPreset(p){if(!p)return"cline";if((p.permissions||{}).mode==="write")return"cline";if(["repo-mapper","skeptic"].includes(p.id))return"cline";return"openai-compatible-direct"}
+function buildPipelineFromTemplate(template,agents){const namesByPhase=phase=>agents.filter(a=>a.phase===phase).map(a=>a.name);const has=name=>phases.some(p=>p.name===name);const phase=(name,inputs,extra={})=>({name,mode:["recon","review"].includes(name)?"parallel":"sequential",agents:namesByPhase(name),inputs,readOnly:name!=="implement",compaction:"basic",maxInputBytes:120000,maxOutputWords:name==="final"?1000:(name==="plan"?2500:2000),outputContract:extra.outputContract||"Concise markdown for the "+name+" phase."});const phases=[];for(const name of template.phases||["recon","plan","review","final"]){if(name==="capture_diff")phases.push({name:"capture_diff",type:"diff",inputs:["implement"]});else if(name==="recon")phases.push(phase("recon",[]));else if(name==="compact")phases.push(phase("compact",["recon"]));else if(name==="plan")phases.push(phase("plan",has("compact")?["compact","recon"]:["recon"]));else if(name==="implement")phases.push(phase("implement",["plan"]));else if(name==="review")phases.push(phase("review",has("capture_diff")?["diff","implement"]:(has("compact")?["plan","compact"]:["plan"])));else if(name==="final")phases.push(phase("final",phases.map(p=>p.type==="diff"?"diff":p.name).filter(n=>!["final","capture_diff"].includes(n))))}return{name:template.pipeline||"default",description:template.description,phases:phases.filter(p=>p.type==="diff"||(p.agents||[]).length)}}
 async function discoverModels(){setStatus("Discovering model endpoints...",true);discovery=await api("/api/discover/models");renderDiscovery();setStatus("Model discovery complete",true)}
 function renderModels(){const body=$("#modelsBody");body.innerHTML=state.models.map((m,i)=>"<div class='card' data-i='"+i+"'><div class='card-head'><div><div class='card-title'>"+esc(m.alias||"model")+"</div><div class='muted'>"+esc(m.provider||"openai-compatible")+" · ctx "+esc(m.contextWindow||32768)+"</div></div><button class='danger' data-del-model='"+i+"'>Remove</button></div><div class='field-grid'><div><label>Alias</label><input data-f='alias' value='"+esc(m.alias)+"'></div><div><label>Provider</label><input data-f='provider' value='"+esc(m.provider||"openai-compatible")+"'></div><div><label>Base URL</label><input data-f='baseUrl' value='"+esc(m.baseUrl)+"'></div><div><label>Model ID</label><input data-f='modelId' value='"+esc(m.modelId)+"'></div><div><label>API key env</label><input data-f='apiKeyEnv' value='"+esc(m.apiKeyEnv||"")+"' placeholder='NONE / blank for local'></div><div><label>Reasoning</label><select data-f='reasoning'>"+["none","low","medium","high","xhigh"].map(v=>"<option "+((m.reasoning||"medium")===v?"selected":"")+">"+v+"</option>").join("")+"</select></div><div><label>Context window</label><input data-f='contextWindow' type='number' value='"+esc(m.contextWindow||32768)+"'></div><div><label>Output budget</label><input data-f='outputBudget' type='number' value='"+esc(m.outputBudget||4000)+"'></div></div><div class='row' style='margin-top:10px'><label><input type='checkbox' data-mod='text' "+(arr(m.modalities).includes("text")?"checked":"")+"> text</label><label><input type='checkbox' data-mod='image' "+(arr(m.modalities).includes("image")?"checked":"")+"> image / multimodal</label></div></div>").join("");body.querySelectorAll("input[data-f],select[data-f]").forEach(el=>el.oninput=()=>{const card=el.closest(".card");const m=state.models[Number(card.dataset.i)];let v=el.value;if(el.type==="number")v=Number(v);if(el.dataset.f==="apiKeyEnv"&&!v)v=null;m[el.dataset.f]=v;renderRunPipeline();renderRuntimeCards()});body.querySelectorAll("input[data-mod]").forEach(el=>el.onchange=()=>{const card=el.closest(".card");const m=state.models[Number(card.dataset.i)];m.modalities=[...card.querySelectorAll("input[data-mod]:checked")].map(x=>x.dataset.mod)});body.querySelectorAll("[data-del-model]").forEach(b=>b.onclick=()=>{state.models.splice(Number(b.dataset.delModel),1);renderAll()})}
 function addModel(){const t=state.presets.models.find(p=>p.id===$("#modelTemplate").value)||state.presets.models[0];const m=clone(t);delete m.id;delete m.label;m.alias=uniqueName(String(t.label||"model").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""),state.models.map(x=>x.alias));state.models.push(m);renderAll();setStatus("Model added",true)}

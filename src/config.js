@@ -13,6 +13,8 @@ import {
 import { DEFAULT_RUNTIME, RUNTIME_IDS, isKnownRuntime } from "./runtime-definitions.js";
 import { ensureDir, readText, writeText, unique } from "./util.js";
 
+export const SETUP_REQUIRED_MESSAGE = "Fleet is not set up yet. Open Fleet Studio with `fleet studio` to complete first-run setup.";
+
 export function loadYaml(file, fallback) {
   if (!fs.existsSync(file)) return fallback;
   const parsed = yaml.load(readText(file));
@@ -37,7 +39,7 @@ export function loadConfig() {
   const agentsDoc = loadYaml(AGENTS_FILE, null);
   const pipelinesDoc = loadYaml(PIPELINES_FILE, null);
   if (!modelsDoc || !agentsDoc || !pipelinesDoc) {
-    throw new Error(`Missing fleet config. Run: fleet init`);
+    throw new Error(SETUP_REQUIRED_MESSAGE);
   }
 
   const models = normalizeMap(modelsDoc.models || modelsDoc, "alias");
@@ -78,20 +80,23 @@ export function structuredState() {
   const raw = loadRawConfig();
   const models = Object.entries(raw.models.models || raw.models || {}).map(([alias, model]) => ({ alias, ...model }));
   const pipelines = Object.entries(raw.pipelines.pipelines || raw.pipelines || {}).map(([name, pipeline]) => ({ name, ...pipeline }));
+  const agents = raw.agents.agents || raw.agents || [];
+  const setupNeeded = !configExists() || !hasRunnableConfig({ models, agents, pipelines });
   return {
     configDir: CONFIG_DIR,
+    setupNeeded,
     files: {
       models: MODELS_FILE,
       agents: AGENTS_FILE,
       pipelines: PIPELINES_FILE
     },
     raw: {
-      models: readText(MODELS_FILE),
-      agents: readText(AGENTS_FILE),
-      pipelines: readText(PIPELINES_FILE)
+      models: readTextOr(MODELS_FILE, "models: {}\n"),
+      agents: readTextOr(AGENTS_FILE, "agents: []\n"),
+      pipelines: readTextOr(PIPELINES_FILE, "pipelines: {}\n")
     },
     models,
-    agents: raw.agents.agents || raw.agents || [],
+    agents,
     pipelines,
     runtimeIds: RUNTIME_IDS
   };
@@ -198,6 +203,21 @@ export function validateConfig(config) {
   if (errors.length) throw new Error(errors.join("\n"));
 }
 
+export function hasRunnableConfig(configOrState) {
+  const models = Array.isArray(configOrState.models) ? configOrState.models : Object.values(configOrState.models || {});
+  const agents = configOrState.agents || [];
+  const pipelines = Array.isArray(configOrState.pipelines) ? configOrState.pipelines : Object.values(configOrState.pipelines || {});
+  return models.length > 0
+    && agents.length > 0
+    && pipelines.some((pipeline) => (pipeline.phases || []).some((phase) => phase.type !== "diff" && (phase.agents || []).length > 0));
+}
+
+export function assertSetupComplete(config) {
+  if (!hasRunnableConfig(config)) {
+    throw new Error(`${SETUP_REQUIRED_MESSAGE} Add at least one model, one agent, and one workflow.`);
+  }
+}
+
 export function getAgent(config, name) {
   const agent = config.agents.find((a) => a.name === name);
   if (!agent) throw new Error(`Unknown agent: ${name}`);
@@ -229,4 +249,8 @@ export function promptsList() {
       file: path.join(PROMPTS_DIR, name),
       content: readText(path.join(PROMPTS_DIR, name))
     }));
+}
+
+function readTextOr(file, fallback) {
+  return fs.existsSync(file) ? readText(file) : fallback;
 }

@@ -1,12 +1,11 @@
 models:
-  local-qwen-vision:
+  qwen-pc:
     provider: openai-compatible
     baseUrl: http://localhost:1234/v1
-    modelId: qwen/qwen3.6-27b
+    modelId: qwen-pc
     apiKeyEnv: null
     modalities:
       - text
-      - image
     contextWindow: 131072
     outputBudget: 4000
     reasoning: medium
